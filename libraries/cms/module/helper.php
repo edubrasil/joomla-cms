@@ -65,6 +65,50 @@ abstract class JModuleHelper
 
 		return $result;
 	}
+	
+	/**
+	 * Get module by name and id (real, eg 'Breadcrumbs' or folder, eg 'mod_breadcrumbs')
+	 *
+	 * @param   string  $name   The name of the module
+	 * @param   string  $id  The id of the module, optional
+	 *
+	 * @return  stdClass  The Module object
+	 *
+	 * @since   3.4
+	 */
+	public static function &getModuleById($name, $id = null)
+	{
+		$result = null;
+		$modules =& static::load();
+		$total = count($modules);
+
+		for ($i = 0; $i < $total; $i++)
+		{
+			// Match the id if we're looking for a specific instance of the module
+			if (!$id || $modules[$i]->id == $id)
+			{
+				// Found it
+				$result = &$modules[$i];
+				break;
+			}
+		}
+
+		// If we didn't find it, and the name is mod_something, create a dummy object
+		if (is_null($result) && substr($name, 0, 4) == 'mod_')
+		{
+			$result            = new stdClass;
+			$result->id        = 0;
+			$result->title     = '';
+			$result->module    = $name;
+			$result->position  = '';
+			$result->content   = '';
+			$result->showtitle = 0;
+			$result->control   = '';
+			$result->params    = '';
+		}
+
+		return $result;
+	}
 
 	/**
 	 * Get modules by position
