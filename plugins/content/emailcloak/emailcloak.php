@@ -3,18 +3,18 @@
  * @package     Joomla.Plugin
  * @subpackage  Content.emailcloak
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('_JEXEC') or die;
 
+use Joomla\String\StringHelper;
+
 /**
  * Email cloack plugin class.
  *
- * @package     Joomla.Plugin
- * @subpackage  Content.emailcloak
- * @since       1.5
+ * @since  1.5
  */
 class PlgContentEmailcloak extends JPlugin
 {
@@ -54,8 +54,7 @@ class PlgContentEmailcloak extends JPlugin
 	 */
 	protected function _getPattern ($link, $text)
 	{
-		$pattern = '~(?:<a ([\w "\'=\@\.\-:;]*)href\s*=\s*"mailto:'
-			. $link . '"([\w "\'=\@\.\-:;]*))>' . $text . '</a>~i';
+		$pattern = '~(?:<a ([^>]*)href\s*=\s*"mailto:' . $link . '"([^>]*))>' . $text . '</a>~i';
 
 		return $pattern;
 	}
@@ -101,15 +100,15 @@ class PlgContentEmailcloak extends JPlugin
 		 * Check for presence of {emailcloak=off} which is explicits disables this
 		 * bot for the item.
 		 */
-		if (JString::strpos($text, '{emailcloak=off}') !== false)
+		if (StringHelper::strpos($text, '{emailcloak=off}') !== false)
 		{
-			$text = JString::str_ireplace('{emailcloak=off}', '', $text);
+			$text = StringHelper::str_ireplace('{emailcloak=off}', '', $text);
 
 			return true;
 		}
 
 		// Simple performance check to determine whether bot should process further.
-		if (JString::strpos($text, '@') === false)
+		if (StringHelper::strpos($text, '@') === false)
 		{
 			return true;
 		}
@@ -117,7 +116,7 @@ class PlgContentEmailcloak extends JPlugin
 		$mode = $this->params->def('mode', 1);
 
 		// Example: any@example.org
-		$searchEmail = '([\w\.\-\+]+\@(?:[a-z0-9\.\-]+\.)+(?:[a-zA-Z0-9\-]{2,10}))';
+		$searchEmail = '([\w\.\'\-\+]+\@(?:[a-z0-9\.\-]+\.)+(?:[a-zA-Z0-9\-]{2,10}))';
 
 		// Example: any@example.org?subject=anyText
 		$searchEmailLink = $searchEmail . '([?&][\x20-\x7f][^"<>]+)';
@@ -126,7 +125,7 @@ class PlgContentEmailcloak extends JPlugin
 		$searchText = '((?:[\x20-\x7f]|[\xA1-\xFF]|[\xC2-\xDF][\x80-\xBF]|[\xE0-\xEF][\x80-\xBF]{2}|[\xF0-\xF4][\x80-\xBF]{3})[^<>]+)';
 
 		// Any Image link
-		$searchImage	=	"(<img[^>]+>)";
+		$searchImage = "(<img[^>]+>)";
 
 		// Any Text with <span or <strong
 		$searchTextSpan = '(<span[^>]+>|<span>|<strong>|<strong><span[^>]+>|<strong><span>)' . $searchText . '(</span>|</strong>|</span></strong>)';
@@ -231,7 +230,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[2][0];
-			$mailText = $regs[4][0] . $regs[5][0] . $regs[6][0];
+			$mailText = $regs[4][0] . addslashes($regs[5][0]) . $regs[6][0];
 
 			$replacement = JHtml::_('email.cloak', $mail, $mode, $mailText, 0);
 
@@ -251,7 +250,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[2][0];
-			$mailText = $regs[4][0];
+			$mailText = addslashes($regs[4][0]);
 
 			$replacement = JHtml::_('email.cloak', $mail, $mode, $mailText, 0);
 
@@ -311,7 +310,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[2][0];
-			$mailText = $regs[4][0] . ($regs[5][0]);
+			$mailText = $regs[4][0] . addslashes($regs[5][0]);
 
 			$replacement = JHtml::_('email.cloak', $mail, $mode, $mailText, 0);
 
@@ -355,7 +354,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[2][0] . $regs[3][0];
-			$mailText = $regs[5][0];
+			$mailText = addslashes($regs[5][0]);
 
 			// Needed for handling of Body parameter
 			$mail = str_replace('&amp;', '&', $mail);
@@ -399,7 +398,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[2][0] . $regs[3][0];
-			$mailText = $regs[4][0] . $regs[5][0] . $regs[6][0] . $regs[7][0];
+			$mailText = $regs[4][0] . $regs[5][0] . addslashes($regs[6][0]) . $regs[7][0];
 
 			$replacement = JHtml::_('email.cloak', $mail, $mode, $mailText, 0);
 
@@ -467,7 +466,7 @@ class PlgContentEmailcloak extends JPlugin
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{
 			$mail = $regs[1][0] . $regs[2][0] . $regs[3][0];
-			$mailText = $regs[4][0] . $regs[5][0] . $regs[6][0];
+			$mailText = $regs[4][0] . $regs[5][0] . addslashes($regs[6][0]);
 
 			// Needed for handling of Body parameter
 			$mail = str_replace('&amp;', '&', $mail);
@@ -482,8 +481,12 @@ class PlgContentEmailcloak extends JPlugin
 			$text = substr_replace($text, $replacement, $regs[0][1], strlen($regs[0][0]));
 		}
 
-		// Search for plain text email@example.org
-		$pattern = '~' . $searchEmail . '([^a-z0-9]|$)~i';
+		/*
+		 * Search for plain text email addresses, such as email@example.org but not within HTML tags:
+		 * <img src="..." title="email@example.org"> or <input type="text" placeholder="email@example.org">
+		 * The negative lookahead '(?![^<]*>)' is used to exclude this kind of occurrences
+		 */
+		$pattern = '~(?![^<>]*>)' . $searchEmail . '~i';
 
 		while (preg_match($pattern, $text, $regs, PREG_OFFSET_CAPTURE))
 		{

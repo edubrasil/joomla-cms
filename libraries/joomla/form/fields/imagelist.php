@@ -3,7 +3,7 @@
  * @package     Joomla.Platform
  * @subpackage  Form
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
@@ -14,11 +14,9 @@ JFormHelper::loadFieldClass('filelist');
 /**
  * Supports an HTML select list of image
  *
- * @package     Joomla.Platform
- * @subpackage  Form
- * @since       11.1
+ * @since  11.1
  */
-class JFormFieldImageList extends JFormFieldFileList
+class JFormFieldImageList extends JFormFieldFileList implements JFormDomfieldinterface
 {
 	/**
 	 * The form field type.
@@ -43,5 +41,25 @@ class JFormFieldImageList extends JFormFieldFileList
 
 		// Get the field options.
 		return parent::getOptions();
+	}
+
+	/**
+	 * Function to manipulate the DOM element of the field. The form can be
+	 * manipulated at that point.
+	 *
+	 * @param   stdClass    $field      The field.
+	 * @param   DOMElement  $fieldNode  The field node.
+	 * @param   JForm       $form       The form.
+	 *
+	 * @return  void
+	 *
+	 * @since   __DEPLOY_VERSION__
+	 */
+	protected function postProcessDomNode($field, DOMElement $fieldNode, JForm $form)
+	{
+		$fieldNode->setAttribute('hide_default', 'true');
+		$fieldNode->setAttribute('directory', '/images/' . $fieldNode->getAttribute('directory'));
+
+		return parent::postProcessDomNode($field, $fieldNode, $form);
 	}
 }

@@ -2,18 +2,18 @@
 /**
  * @package     Joomla.Administrator
  * @subpackage  com_installer
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License, see LICENSE.php
  */
 
 defined('_JEXEC') or die;
 
+use Joomla\Utilities\ArrayHelper;
+
 /**
  * Languages Installer Controller
  *
- * @package     Joomla.Administrator
- * @subpackage  com_installer
- * @since       2.5.7
+ * @since  2.5.7
  */
 class InstallerControllerLanguages extends JControllerLegacy
 {
@@ -40,8 +40,13 @@ class InstallerControllerLanguages extends JControllerLegacy
 		$cache_timeout = 3600 * $cache_timeout;
 
 		// Find updates
-		$model	= $this->getModel('languages');
-		$model->findLanguages($cache_timeout);
+		$model = $this->getModel('languages');
+
+		if (!$model->findLanguages($cache_timeout))
+		{
+			$this->setError($model->getError());
+			$this->setMessage($this->getError(), 'error');
+		}
 
 		$this->setRedirect(JRoute::_('index.php?option=com_installer&view=languages', false));
 	}
@@ -78,13 +83,12 @@ class InstallerControllerLanguages extends JControllerLegacy
 
 		// Get array of selected languages
 		$lids = $this->input->get('cid', array(), 'array');
-		JArrayHelper::toInteger($lids, array());
+		$lids = ArrayHelper::toInteger($lids, array());
 
 		if (!$lids)
 		{
 			// No languages have been selected
-			$app = JFactory::getApplication();
-			$app->enqueueMessage(JText::_('COM_INSTALLER_MSG_DISCOVER_NOEXTENSIONSELECTED'));
+			JFactory::getApplication()->enqueueMessage(JText::_('COM_INSTALLER_MSG_DISCOVER_NOEXTENSIONSELECTED'));
 		}
 		else
 		{

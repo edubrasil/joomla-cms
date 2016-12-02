@@ -43,8 +43,24 @@ class JGithubPackageMarkdownTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * Overrides the parent tearDown method.
+	 *
+	 * @return  void
+	 *
+	 * @see     PHPUnit_Framework_TestCase::tearDown()
+	 * @since   3.6
+	 */
+	protected function tearDown()
+	{
+		unset($this->options);
+		unset($this->client);
+		unset($this->response);
+		unset($this->object);
+		parent::tearDown();
+	}
+
+	/**
 	 * @covers JGithubPackageMarkdown::render
-	 * @todo   Implement testRender().
 	 */
 	public function testRender()
 	{

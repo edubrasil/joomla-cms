@@ -3,18 +3,18 @@
  * @package     Joomla.Legacy
  * @subpackage  Table
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
 defined('JPATH_PLATFORM') or die;
 
+use Joomla\Registry\Registry;
+
 /**
  * Menu table
  *
- * @package     Joomla.Legacy
- * @subpackage  Table
- * @since       11.1
+ * @since  1.5
  */
 class JTableMenu extends JTableNested
 {
@@ -23,7 +23,7 @@ class JTableMenu extends JTableNested
 	 *
 	 * @param   JDatabaseDriver  $db  Database driver object.
 	 *
-	 * @since   11.1
+	 * @since   1.5
 	 */
 	public function __construct(JDatabaseDriver $db)
 	{
@@ -42,7 +42,7 @@ class JTableMenu extends JTableNested
 	 * @return  mixed  Null if operation was satisfactory, otherwise returns an error
 	 *
 	 * @see     JTable::bind()
-	 * @since   11.1
+	 * @since   1.5
 	 */
 	public function bind($array, $ignore = '')
 	{
@@ -72,8 +72,7 @@ class JTableMenu extends JTableNested
 
 		if (isset($array['params']) && is_array($array['params']))
 		{
-			$registry = new JRegistry;
-			$registry->loadArray($array['params']);
+			$registry = new Registry($array['params']);
 			$array['params'] = (string) $registry;
 		}
 
@@ -86,34 +85,68 @@ class JTableMenu extends JTableNested
 	 * @return  boolean  True on success
 	 *
 	 * @see     JTable::check()
-	 * @since   11.1
+	 * @since   1.5
 	 */
 	public function check()
 	{
-		// Set correct component id to ensure proper 404 messages with separator items
-		if ($this->type == "separator")
+		// Check for a title.
+		if (trim($this->title) == '')
 		{
-			$this->component_id = 0;
+			$this->setError(JText::_('JLIB_DATABASE_ERROR_MUSTCONTAIN_A_TITLE_MENUITEM'));
+
+			return false;
 		}
 
-		// If the alias field is empty, set it to the title.
-		$this->alias = trim($this->alias);
-
-		if ((empty($this->alias)) && ($this->type != 'alias' && $this->type != 'url'))
+		// Check for a path.
+		if (trim($this->path) == '')
 		{
-			$this->alias = $this->title;
+			$this->path = $this->alias;
 		}
-
-		// Make the alias URL safe.
-		$this->alias = JApplication::stringURLSafe($this->alias);
-
-		if (trim(str_replace('-', '', $this->alias)) == '')
+		// Check for params.
+		if (trim($this->params) == '')
 		{
-			$this->alias = JFactory::getDate()->format('Y-m-d-H-i-s');
+			$this->params = '{}';
+		}
+		// Check for img.
+		if (trim($this->img) == '')
+		{
+			$this->img = ' ';
 		}
 
 		// Cast the home property to an int for checking.
 		$this->home = (int) $this->home;
+
+		// Verify that the home item is a component.
+		if ($this->home && $this->type != 'component')
+		{
+			$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_HOME_NOT_COMPONENT'));
+
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Overloaded store function
+	 *
+	 * @param   boolean  $updateNulls  True to update fields even if they are null.
+	 *
+	 * @return  mixed  False on failure, positive integer on success.
+	 *
+	 * @see     JTable::store()
+	 * @since   1.6
+	 */
+	public function store($updateNulls = false)
+	{
+		$db = JFactory::getDbo();
+
+		// Verify that the alias is unique
+		$table = JTable::getInstance('Menu', 'JTable', array('dbo' => $this->getDbo()));
+
+		$originalAlias = trim($this->alias);
+		$this->alias   = !$originalAlias ? $this->title : $originalAlias;
+		$this->alias   = JApplicationHelper::stringURLSafe(trim($this->alias), $this->language);
 
 		// Verify that a first level menu item alias is not 'component'.
 		if ($this->parent_id == 1 && $this->alias == 'component')
@@ -133,54 +166,66 @@ class JTableMenu extends JTableNested
 			return false;
 		}
 
-		// Verify that the home item a component.
-		if ($this->home && $this->type != 'component')
+		// If alias still empty (for instance, new menu item with chinese characters with no unicode alias setting).
+		if (empty($this->alias))
 		{
-			$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_HOME_NOT_COMPONENT'));
-
-			return false;
+			$this->alias = JFactory::getDate()->format('Y-m-d-H-i-s');
 		}
-
-		return true;
-	}
-
-	/**
-	 * Overloaded store function
-	 *
-	 * @param   boolean  $updateNulls  True to update fields even if they are null.
-	 *
-	 * @return  mixed  False on failure, positive integer on success.
-	 *
-	 * @see     JTable::store()
-	 * @since   11.1
-	 */
-	public function store($updateNulls = false)
-	{
-		$db = JFactory::getDbo();
-
-		// Verify that the alias is unique
-		$table = JTable::getInstance('Menu', 'JTable', array('dbo' => $this->getDbo()));
-
-		if ($table->load(array('alias' => $this->alias, 'parent_id' => $this->parent_id, 'client_id' => (int) $this->client_id, 'language' => $this->language))
-			&& ($table->id != $this->id || $this->id == 0))
+		else
 		{
-			if ($this->menutype == $table->menutype)
+			$itemSearch = array('alias' => $this->alias, 'parent_id' => $this->parent_id, 'client_id' => (int) $this->client_id);
+			$error      = false;
+
+			// Check if the alias already exists. For multilingual site.
+			if (JLanguageMultilang::isEnabled())
 			{
-				$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_UNIQUE_ALIAS'));
+				// If not exists a menu item at the same level with the same alias (in the All or the same language).
+				if (($table->load(array_replace($itemSearch, array('language' => '*'))) && ($table->id != $this->id || $this->id == 0))
+					|| ($table->load(array_replace($itemSearch, array('language' => $this->language))) && ($table->id != $this->id || $this->id == 0))
+					|| ($this->language == '*' && $table->load($itemSearch) && ($table->id != $this->id || $this->id == 0)))
+				{
+					$error = true;
+				}
 			}
+			// Check if the alias already exists. For monolingual site.
 			else
 			{
-				$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_UNIQUE_ALIAS_ROOT'));
+				// If not exists a menu item at the same level with the same alias (in any language).
+				if ($table->load($itemSearch) && ($table->id != $this->id || $this->id == 0))
+				{
+					$error = true;
+				}
 			}
 
-			return false;
+			// The alias already exists. Enqueue an error message.
+			if ($error)
+			{
+				$menuTypeTable = JTable::getInstance('MenuType', 'JTable', array('dbo' => $this->getDbo()));
+				$menuTypeTable->load(array('menutype' => $table->menutype));
+				$this->setError(JText::sprintf('JLIB_DATABASE_ERROR_MENU_UNIQUE_ALIAS', $this->alias, $table->title, $menuTypeTable->title));
+
+				return false;
+			}
 		}
 
-		// Verify that the home page for this language is unique
 		if ($this->home == '1')
 		{
-			$table = JTable::getInstance('Menu', 'JTable', array('dbo' => $this->getDbo()));
+			// Verify that the home page for this menu is unique.
+			if ($table->load(
+					array(
+					'menutype' => $this->menutype,
+					'client_id' => (int) $this->client_id,
+					'home' => '1',
+					)
+				)
+				&& ($table->language != $this->language))
+			{
+				$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_HOME_NOT_UNIQUE_IN_MENU'));
 
+				return false;
+			}
+
+			// Verify that the home page for this language is unique
 			if ($table->load(array('home' => '1', 'language' => $this->language)))
 			{
 				if ($table->checked_out && $table->checked_out != $this->checked_out)
@@ -194,14 +239,6 @@ class JTableMenu extends JTableNested
 				$table->checked_out = 0;
 				$table->checked_out_time = $db->getNullDate();
 				$table->store();
-			}
-
-			// Verify that the home page for this menu is unique.
-			if ($table->load(array('home' => '1', 'menutype' => $this->menutype)) && ($table->id != $this->id || $this->id == 0))
-			{
-				$this->setError(JText::_('JLIB_DATABASE_ERROR_MENU_HOME_NOT_UNIQUE_IN_MENU'));
-
-				return false;
 			}
 		}
 
@@ -227,6 +264,6 @@ class JTableMenu extends JTableNested
 
 		// Use new path for partial rebuild of table
 		// Rebuild will return positive integer on success, false on failure
-		return ($this->rebuild($this->{$this->_tbl_key}, $this->lft, $this->level, $newPath) > 0);
+		return $this->rebuild($this->{$this->_tbl_key}, $this->lft, $this->level, $newPath) > 0;
 	}
 }

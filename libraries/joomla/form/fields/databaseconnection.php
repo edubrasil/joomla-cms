@@ -3,25 +3,21 @@
  * @package     Joomla.Platform
  * @subpackage  Form
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
 defined('JPATH_PLATFORM') or die;
-
-JFormHelper::loadFieldClass('list');
 
 /**
  * Form Field class for the Joomla Platform.
  * Provides a list of available database connections, optionally limiting to
  * a given list.
  *
- * @package     Joomla.Platform
- * @subpackage  Form
- * @see         JDatabaseDriver
- * @since       11.3
+ * @see    JDatabaseDriver
+ * @since  11.3
  */
-class JFormFieldDatabaseConnection extends JFormFieldList
+class JFormFieldDatabaseConnection extends JFormAbstractlist
 {
 	/**
 	 * The form field type.

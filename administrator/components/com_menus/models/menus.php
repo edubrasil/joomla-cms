@@ -3,25 +3,25 @@
  * @package     Joomla.Administrator
  * @subpackage  com_menus
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('_JEXEC') or die;
 
+use Joomla\Utilities\ArrayHelper;
+
 /**
  * Menu List Model for Menus.
  *
- * @package     Joomla.Administrator
- * @subpackage  com_menus
- * @since       1.6
+ * @since  1.6
  */
 class MenusModelMenus extends JModelList
 {
 	/**
 	 * Constructor.
 	 *
-	 * @param   array  An optional associative array of configuration settings.
+	 * @param   array  $config  An optional associative array of configuration settings.
 	 *
 	 * @see     JController
 	 * @since   1.6
@@ -72,7 +72,7 @@ class MenusModelMenus extends JModelList
 
 		// Get the menu types of menus in the list.
 		$db = $this->getDbo();
-		$menuTypes = JArrayHelper::getColumn($items, 'menutype');
+		$menuTypes = ArrayHelper::getColumn((array) $items, 'menutype');
 
 		// Quote the strings.
 		$menuTypes = implode(
@@ -97,6 +97,7 @@ class MenusModelMenus extends JModelList
 		catch (RuntimeException $e)
 		{
 			$this->setError($e->getMessage());
+
 			return false;
 		}
 
@@ -113,6 +114,7 @@ class MenusModelMenus extends JModelList
 		catch (RuntimeException $e)
 		{
 			$this->setError($e->getMessage());
+
 			return false;
 		}
 
@@ -129,6 +131,7 @@ class MenusModelMenus extends JModelList
 		catch (RuntimeException $e)
 		{
 			$this->setError($e->getMessage());
+
 			return false;
 		}
 
@@ -160,10 +163,9 @@ class MenusModelMenus extends JModelList
 		$query = $db->getQuery(true);
 
 		// Select all fields from the table.
-		$query->select($this->getState('list.select', 'a.*'))
+		$query->select($this->getState('list.select', 'a.id, a.menutype, a.title, a.description'))
 			->from($db->quoteName('#__menu_types') . ' AS a')
-
-			->group('a.id, a.menutype, a.title, a.description');
+			->where('a.id > 0');
 
 		// Filter by search in title or menutype
 		if ($search = trim($this->getState('filter.search')))
@@ -190,13 +192,13 @@ class MenusModelMenus extends JModelList
 	 *
 	 * @since   1.6
 	 */
-	protected function populateState($ordering = null, $direction = null)
+	protected function populateState($ordering = 'a.title', $direction = 'asc')
 	{
 		$search = $this->getUserStateFromRequest($this->context . '.search', 'filter_search');
 		$this->setState('filter.search', $search);
 
 		// List state information.
-		parent::populateState('a.id', 'asc');
+		parent::populateState($ordering, $direction);
 	}
 
 	/**
@@ -224,11 +226,13 @@ class MenusModelMenus extends JModelList
 	 * Gets a list of all mod_mainmenu modules and collates them by menutype
 	 *
 	 * @return  array
+	 *
+	 * @since   1.6
 	 */
 	public function &getModules()
 	{
 		$model = JModelLegacy::getInstance('Menu', 'MenusModel', array('ignore_request' => true));
-		$result = & $model->getModules();
+		$result = $model->getModules();
 
 		return $result;
 	}

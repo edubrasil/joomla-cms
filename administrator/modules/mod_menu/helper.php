@@ -3,18 +3,18 @@
  * @package     Joomla.Administrator
  * @subpackage  mod_menu
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('_JEXEC') or die;
 
+use Joomla\Utilities\ArrayHelper;
+
 /**
  * Helper for mod_menu
  *
- * @package     Joomla.Administrator
- * @subpackage  mod_menu
- * @since       1.5
+ * @since  1.5
  */
 abstract class ModMenuHelper
 {
@@ -28,7 +28,7 @@ abstract class ModMenuHelper
 	public static function getMenus()
 	{
 		$db     = JFactory::getDbo();
-		$query	= $db->getQuery(true)
+		$query = $db->getQuery(true)
 			->select('a.*, SUM(b.home) AS home')
 			->from('#__menu_types AS a')
 			->join('LEFT', '#__menu AS b ON b.menutype = a.menutype AND b.home != 0')
@@ -44,7 +44,15 @@ abstract class ModMenuHelper
 
 		$db->setQuery($query);
 
-		$result = $db->loadObjectList();
+		try
+		{
+			$result = $db->loadObjectList();
+		}
+		catch (RuntimeException $e)
+		{
+			$result = array();
+			JFactory::getApplication()->enqueueMessage(JText::_('JERROR_AN_ERROR_HAS_OCCURRED'), 'error');
+		}
 
 		return $result;
 	}
@@ -82,7 +90,15 @@ abstract class ModMenuHelper
 		$db->setQuery($query);
 
 		// Component list
-		$components = $db->loadObjectList();
+		try
+		{
+			$components = $db->loadObjectList();
+		}
+		catch (RuntimeException $e)
+		{
+			$components = array();
+			JFactory::getApplication()->enqueueMessage(JText::_('JERROR_AN_ERROR_HAS_OCCURRED'), 'error');
+		}
 
 		// Parse the list of extensions.
 		foreach ($components as &$component)
@@ -135,8 +151,6 @@ abstract class ModMenuHelper
 			}
 		}
 
-		$result = JArrayHelper::sortObjects($result, 'text', 1, true, true);
-
-		return $result;
+		return ArrayHelper::sortObjects($result, 'text', 1, false, true);
 	}
 }

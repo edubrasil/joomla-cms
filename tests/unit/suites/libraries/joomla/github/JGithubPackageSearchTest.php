@@ -58,9 +58,25 @@ class JGithubPackageSearchTest extends PHPUnit_Framework_TestCase
 		$this->object = new JGithubPackageSearch($this->options, $this->client);
 	}
 
+	/**
+	 * Overrides the parent tearDown method.
+	 *
+	 * @return  void
+	 *
+	 * @see     PHPUnit_Framework_TestCase::tearDown()
+	 * @since   3.6
+	 */
+	protected function tearDown()
+	{
+		unset($this->options);
+		unset($this->client);
+		unset($this->response);
+		unset($this->object);
+		parent::tearDown();
+	}
+
     /**
      * @covers JGithubPackageSearch::issues
-     * @todo   Implement testIssues().
      */
     public function testIssues()
     {
@@ -80,7 +96,6 @@ class JGithubPackageSearchTest extends PHPUnit_Framework_TestCase
 
 	/**
 	 * @covers JGithubPackageSearch::issues
-	 * @todo   Implement testIssues().
 	 *
 	 * @expectedException UnexpectedValueException
 	 */
@@ -94,7 +109,6 @@ class JGithubPackageSearchTest extends PHPUnit_Framework_TestCase
 
 	/**
      * @covers JGithubPackageSearch::repositories
-     * @todo   Implement testRepositories().
      */
     public function testRepositories()
     {
@@ -114,7 +128,6 @@ class JGithubPackageSearchTest extends PHPUnit_Framework_TestCase
 
     /**
      * @covers JGithubPackageSearch::users
-     * @todo   Implement testUsers().
      */
     public function testUsers()
     {
@@ -134,7 +147,6 @@ class JGithubPackageSearchTest extends PHPUnit_Framework_TestCase
 
     /**
      * @covers JGithubPackageSearch::email
-     * @todo   Implement testEmail().
      */
     public function testEmail()
     {

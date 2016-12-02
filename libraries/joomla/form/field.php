@@ -3,18 +3,19 @@
  * @package     Joomla.Platform
  * @subpackage  Form
  *
- * @copyright   Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
 defined('JPATH_PLATFORM') or die;
 
+use Joomla\String\Normalise;
+use Joomla\String\StringHelper;
+
 /**
  * Abstract Form Field class for the Joomla Platform.
  *
- * @package     Joomla.Platform
- * @subpackage  Form
- * @since       11.1
+ * @since  11.1
  */
 abstract class JFormField
 {
@@ -61,7 +62,7 @@ abstract class JFormField
 	protected $autofocus = false;
 
 	/**
-	 * The SimpleXMLElement object of the <field /> XML element that describes the form field.
+	 * The SimpleXMLElement object of the `<field>` XML element that describes the form field.
 	 *
 	 * @var    SimpleXMLElement
 	 * @since  11.1
@@ -305,6 +306,14 @@ abstract class JFormField
 	protected static $generated_fieldname = '__field';
 
 	/**
+	 * Name of the layout being used to render the field
+	 *
+	 * @var    string
+	 * @since  3.5
+	 */
+	protected $layout;
+
+	/**
 	 * Layout to render the form field
 	 *
 	 * @var  string
@@ -337,15 +346,15 @@ abstract class JFormField
 		// Detect the field type if not set
 		if (!isset($this->type))
 		{
-			$parts = JStringNormalise::fromCamelCase(get_called_class(), true);
+			$parts = Normalise::fromCamelCase(get_called_class(), true);
 
 			if ($parts[0] == 'J')
 			{
-				$this->type = JString::ucfirst($parts[count($parts) - 1], '_');
+				$this->type = StringHelper::ucfirst($parts[count($parts) - 1], '_');
 			}
 			else
 			{
-				$this->type = JString::ucfirst($parts[0], '_') . JString::ucfirst($parts[count($parts) - 1], '_');
+				$this->type = StringHelper::ucfirst($parts[0], '_') . StringHelper::ucfirst($parts[count($parts) - 1], '_');
 			}
 		}
 	}
@@ -375,6 +384,7 @@ abstract class JFormField
 			case 'validate':
 			case 'value':
 			case 'class':
+			case 'layout':
 			case 'labelclass':
 			case 'size':
 			case 'onchange':
@@ -410,7 +420,7 @@ abstract class JFormField
 				return $this->getTitle();
 		}
 
-		return null;
+		return;
 	}
 
 	/**
@@ -435,6 +445,7 @@ abstract class JFormField
 			case 'hint':
 			case 'value':
 			case 'labelclass':
+			case 'layout':
 			case 'onchange':
 			case 'onclick':
 			case 'validate':
@@ -531,7 +542,7 @@ abstract class JFormField
 	/**
 	 * Method to attach a JForm object to the field.
 	 *
-	 * @param   SimpleXMLElement  $element  The SimpleXMLElement object representing the <field /> tag for the form field object.
+	 * @param   SimpleXMLElement  $element  The SimpleXMLElement object representing the `<field>` tag for the form field object.
 	 * @param   mixed             $value    The form field value to validate.
 	 * @param   string            $group    The field name group control value. This acts as as an array container for the field.
 	 *                                      For example if the field has name="foo" and the group value is set to "bar" then the
@@ -560,11 +571,9 @@ abstract class JFormField
 		$this->group = $group;
 
 		$attributes = array(
-			'multiple', 'name', 'id', 'hint', 'class', 'description', 'labelclass', 'onchange',
-			'onclick', 'validate', 'pattern', 'default', 'required',
-			'disabled', 'readonly', 'autofocus', 'hidden', 'autocomplete', 'spellcheck',
-			'translateHint', 'translateLabel','translate_label', 'translateDescription',
-			'translate_description' ,'size');
+			'multiple', 'name', 'id', 'hint', 'class', 'description', 'labelclass', 'onchange', 'onclick', 'validate', 'pattern', 'default',
+			'required', 'disabled', 'readonly', 'autofocus', 'hidden', 'autocomplete', 'spellcheck', 'translateHint', 'translateLabel',
+			'translate_label', 'translateDescription', 'translate_description', 'size');
 
 		$this->default = isset($element['value']) ? (string) $element['value'] : $this->default;
 
@@ -582,6 +591,8 @@ abstract class JFormField
 
 		// Set the visibility.
 		$this->hidden = ($this->hidden || (string) $element['type'] == 'hidden');
+
+		$this->layout = !empty($this->element['layout']) ? (string) $this->element['layout'] : $this->layout;
 
 		// Add required to class list if field is required.
 		if ($this->required)
@@ -675,7 +686,15 @@ abstract class JFormField
 	 *
 	 * @since   11.1
 	 */
-	abstract protected function getInput();
+	protected function getInput()
+	{
+		if (empty($this->layout))
+		{
+			throw new UnexpectedValueException(sprintf('%s has no layout assigned.', $this->name));
+		}
+
+		return $this->getRenderer($this->layout)->render($this->getLayoutData());
+	}
 
 	/**
 	 * Method to get the field title.
@@ -714,25 +733,20 @@ abstract class JFormField
 			return '';
 		}
 
-		// Get the label text from the XML element, defaulting to the element name.
-		$text = $this->element['label'] ? (string) $this->element['label'] : (string) $this->element['name'];
-		$text = $this->translateLabel ? JText::_($text) : $text;
+		$data = $this->getLayoutData();
 
 		// Forcing the Alias field to display the tip below
 		$position = $this->element['name'] == 'alias' ? ' data-placement="bottom" ' : '';
 
-		$description = ($this->translateDescription && !empty($this->description)) ? JText::_($this->description) : $this->description;
+		// Here mainly for B/C with old layouts. This can be done in the layouts directly
+		$extraData = array(
+			'text'        => $data['label'],
+			'for'         => $this->id,
+			'classes'     => explode(' ', $data['labelclass']),
+			'position'    => $position,
+		);
 
-		$displayData = array(
-				'text'        => $text,
-				'description' => $description,
-				'for'         => $this->id,
-				'required'    => (bool) $this->required,
-				'classes'     => explode(' ', $this->labelclass),
-				'position'    => $position
-			);
-
-		return JLayoutHelper::render($this->renderLabelLayout, $displayData);
+		return $this->getRenderer($this->renderLabelLayout)->render(array_merge($data, $extraData));
 	}
 
 	/**
@@ -883,6 +897,23 @@ abstract class JFormField
 	}
 
 	/**
+	 * Render a layout of this field
+	 *
+	 * @param   string  $layoutId  Layout identifier
+	 * @param   array   $data      Optional data for the layout
+	 *
+	 * @return  string
+	 *
+	 * @since   3.5
+	 */
+	public function render($layoutId, $data = array())
+	{
+		$data = array_merge($this->getLayoutData(), $data);
+
+		return $this->getRenderer($layoutId)->render($data);
+	}
+
+	/**
 	 * Method to get a control group with label and input.
 	 *
 	 * @param   array  $options  Options to be passed into the rendering of the field
@@ -910,15 +941,226 @@ abstract class JFormField
 			$options['hiddenLabel'] = true;
 		}
 
-		if ($showon = $this->getAttribute('showon'))
+		if ($showonstring = $this->getAttribute('showon'))
 		{
-			$showon   = explode(':', $showon, 2);
-			$options['class'] .= ' showon_' . implode(' showon_', explode(',', $showon[1]));
-			$id = $this->getName($showon[0]);
-			$options['rel'] = ' rel="showon_' . $id . '"';
+			$showonarr = array();
+
+			foreach (preg_split('%\[AND\]|\[OR\]%', $showonstring) as $showonfield)
+			{
+				$showon   = explode(':', $showonfield, 2);
+				$showonarr[] = array(
+					'field'  => str_replace('[]', '', $this->getName($showon[0])),
+					'values' => explode(',', $showon[1]),
+					'op'     => (preg_match('%\[(AND|OR)\]' . $showonfield . '%', $showonstring, $matches)) ? $matches[1] : '',
+				);
+			}
+
+			$options['rel'] = ' data-showon=\'' . json_encode($showonarr) . '\'';
 			$options['showonEnabled'] = true;
 		}
 
-		return JLayoutHelper::render($this->renderLayout, array('input' => $this->getInput(), 'label' => $this->getLabel(), 'options' => $options));
+		$data = array(
+			'input'   => $this->getInput(),
+			'label'   => $this->getLabel(),
+			'options' => $options,
+		);
+
+		return $this->getRenderer($this->renderLayout)->render($data);
+	}
+
+	/**
+	 * Method to get the data to be passed to the layout for rendering.
+	 *
+	 * @return  array
+	 *
+	 * @since 3.5
+	 */
+	protected function getLayoutData()
+	{
+		// Label preprocess
+		$label = $this->element['label'] ? (string) $this->element['label'] : (string) $this->element['name'];
+		$label = $this->translateLabel ? JText::_($label) : $label;
+
+		// Description preprocess
+		$description = !empty($this->description) ? $this->description : null;
+		$description = !empty($description) && $this->translateDescription ? JText::_($description) : $description;
+
+		$alt = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $this->fieldname);
+
+		return array(
+			'autocomplete' => $this->autocomplete,
+			'autofocus'    => $this->autofocus,
+			'class'        => $this->class,
+			'description'  => $description,
+			'disabled'     => $this->disabled,
+			'field'        => $this,
+			'group'        => $this->group,
+			'hidden'       => $this->hidden,
+			'hint'         => $this->translateHint ? JText::alt($this->hint, $alt) : $this->hint,
+			'id'           => $this->id,
+			'label'        => $label,
+			'labelclass'   => $this->labelclass,
+			'multiple'     => $this->multiple,
+			'name'         => $this->name,
+			'onchange'     => $this->onchange,
+			'onclick'      => $this->onclick,
+			'pattern'      => $this->pattern,
+			'readonly'     => $this->readonly,
+			'repeat'       => $this->repeat,
+			'required'     => (bool) $this->required,
+			'size'         => $this->size,
+			'spellcheck'   => $this->spellcheck,
+			'validate'     => $this->validate,
+			'value'        => $this->value,
+		);
+	}
+
+	/**
+	 * Allow to override renderer include paths in child fields
+	 *
+	 * @return  array
+	 *
+	 * @since   3.5
+	 */
+	protected function getLayoutPaths()
+	{
+		return array();
+	}
+
+	/**
+	 * Get the renderer
+	 *
+	 * @param   string  $layoutId  Id to load
+	 *
+	 * @return  JLayout
+	 *
+	 * @since   3.5
+	 */
+	protected function getRenderer($layoutId = 'default')
+	{
+		$renderer = new JLayoutFile($layoutId);
+
+		$renderer->setDebug($this->isDebugEnabled());
+
+		$layoutPaths = $this->getLayoutPaths();
+
+		if ($layoutPaths)
+		{
+			$renderer->setIncludePaths($layoutPaths);
+		}
+
+		return $renderer;
+	}
+
+	/**
+	 * Is debug enabled for this field
+	 *
+	 * @return  boolean
+	 *
+	 * @since   3.5
+	 */
+	protected function isDebugEnabled()
+	{
+		return $this->getAttribute('debug', 'false') === 'true';
+	}
+
+	/**
+	 * Transforms the field into an XML element and appends it as child on the given parent. This
+	 * is the default implementation of a field. Form fields which do support to be transformed into
+	 * an XML Element mut implemet the JFormDomfieldinterface.
+	 *
+	 * @param   stdClass    $field   The field.
+	 * @param   DOMElement  $parent  The field node parent.
+	 * @param   JForm       $form    The form.
+	 *
+	 * @return  DOMElement
+	 *
+	 * @since   __DEPLOY_VERSION__
+	 * @see     JFormDomfieldinterface::appendXMLFieldTag
+	 */
+	public function appendXMLFieldTag($field, DOMElement $parent, JForm $form)
+	{
+		$app = JFactory::getApplication();
+
+		if ($field->params->get('show_on') == 1 && $app->isAdmin())
+		{
+			return;
+		}
+		elseif ($field->params->get('show_on') == 2 && $app->isSite())
+		{
+			return;
+		}
+
+		$node = $parent->appendChild(new DOMElement('field'));
+
+		$node->setAttribute('name', $field->alias);
+		$node->setAttribute('type', $field->type);
+		$node->setAttribute('default', $field->default_value);
+		$node->setAttribute('label', $field->label);
+		$node->setAttribute('description', $field->description);
+		$node->setAttribute('class', $field->params->get('class'));
+		$node->setAttribute('hint', $field->params->get('hint'));
+		$node->setAttribute('required', $field->required ? 'true' : 'false');
+		$node->setAttribute('readonly', $field->params->get('readonly', 0) ? 'true' : 'false');
+
+		// Set the disabled state based on the parameter and the permission
+		if ($field->params->get('disabled', 0))
+		{
+			$node->setAttribute('disabled', 'true');
+		}
+
+		foreach ($field->fieldparams->toArray() as $key => $param)
+		{
+			if (is_array($param))
+			{
+				$param = implode(',', $param);
+			}
+
+			$node->setAttribute($key, $param);
+		}
+
+		$this->postProcessDomNode($field, $node, $form);
+
+		return $node;
+	}
+
+	/**
+	 * Function to manipulate the DOM element of the field. The form can be
+	 * manipulated at that point.
+	 *
+	 * @param   stdClass    $field      The field.
+	 * @param   DOMElement  $fieldNode  The field node.
+	 * @param   JForm       $form       The form.
+	 *
+	 * @return  void
+	 *
+	 * @since   __DEPLOY_VERSION__
+	 */
+	protected function postProcessDomNode ($field, DOMElement $fieldNode, JForm $form)
+	{
+	}
+
+	/**
+	 * Returns the attributes of the field as an XML string which can be loaded
+	 * into JForm.
+	 *
+	 * @return  string
+	 *
+	 * @since   __DEPLOY_VERSION__
+	 */
+	public function getFormParameters()
+	{
+		jimport('joomla.filesystem.file');
+
+		$reflectionClass = new ReflectionClass($this);
+		$fileName        = dirname($reflectionClass->getFileName()) . '/../parameters/';
+		$fileName       .= str_replace('.php', '.xml', basename($reflectionClass->getFileName()));
+
+		if (JFile::exists($fileName))
+		{
+			return JFile::read($fileName);
+		}
+
+		return '';
 	}
 }

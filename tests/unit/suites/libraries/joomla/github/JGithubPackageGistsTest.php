@@ -3,7 +3,7 @@
  * @package     Joomla.UnitTest
  * @subpackage  Github
  *
- * @copyright   Copyright (C) 2005 - 2012 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2016 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 /*
@@ -70,6 +70,22 @@ class JGithubPackageGistsTest extends PHPUnit_Framework_TestCase
 	}
 
 	/**
+	 * Overrides the parent tearDown method.
+	 *
+	 * @return  void
+	 *
+	 * @see     PHPUnit_Framework_TestCase::tearDown()
+	 * @since   3.6
+	 */
+	protected function tearDown()
+	{
+		unset($this->options);
+		unset($this->client);
+		unset($this->object);
+		parent::tearDown();
+	}
+
+	/**
 	 * Tests the create method
 	 *
 	 * @return void
@@ -123,7 +139,7 @@ class JGithubPackageGistsTest extends PHPUnit_Framework_TestCase
 		$data = json_encode(
 			array(
 				'files' => array(
-					'gittest' => array('content' => 'GistContent' . "\n")
+					'gittest' => array('content' => 'GistContent' . PHP_EOL)
 				),
 				'public' => true,
 				'description' => 'This is a gist'
@@ -138,7 +154,7 @@ class JGithubPackageGistsTest extends PHPUnit_Framework_TestCase
 		$this->assertThat(
 			$this->object->create(
 				array(
-					__DIR__ . '/stubs/gittest'
+					JPATH_TEST_STUBS . '/gittest'
 				),
 				true,
 				'This is a gist'
